@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>The Cube Wireframe</title>
+		<style>
+			body { margin: 0;}
+			canvas { width: 100%; height: 100% }
+			
+			h1#title {
+				font-family: 'Bahiana', cursive;
+				font-size:75px;
+				position: absolute;
+				margin-top:30px;
+				margin-left:100px;
+				z-index: -1;
+			}
+			
+			h1 span {
+				color: #2FA1D6;
+			}
+			
+			h2#the {
+				font-family: 'Bahiana', cursive;
+				font-size:35px;
+				position: absolute;
+				margin-top:10px;
+				margin-left:100px;
+				z-index: -1;
+			}
+			
+			/* DAT.GUI */
+			.dg li.title {
+				color: white;
+				background-color: #6e6e6e !important; 
+				text-shadow:none;
+				font-size: 12px;
+			}
+			.dg li.cr{
+				color: #424242; 
+				text-shadow:none; 
+				background-color: transparent !important; 
+				border-left-color: #2FA1D6 !important;
+				border-bottom-color: #2FA1D6 !important;
+				font-size: 12px;
+			}
+			.dg .slider {
+				background-color: white !important;
+				border:solid 1px !important;
+				border-color: #6e6e6e !important;
+			}
+			.dg input {
+				background-color: white !important;
+				color: #2FA1D6 !important;
+			}
+			.dg div.close-button {
+				color:white; 
+				background-color: #424242 !important;
+				font-size: 12px;
+			}
+			.dg div.close-button:hover{ background-color: #2FA1D6 !important;
+			}
+									
+		</style>
+		<!-- Just adding the necessary libraries: -->
+			<!-- TRHEE.JS main library -->
+			<script src="js/three.js"></script>
+			
+			<!-- ORBIT CAMERA library to create the camera controls -->
+			<script src="js/OrbitControls.js"></script>
+			
+			<!-- CSG libraries to create the geometry unions -->
+			<script src="js/csg.js"></script>
+			<script src="js/ThreeCSG.js"></script>
+			
+			<!-- Libraries to allow us to save the scene to .STL file  -->
+			<script src="js/FileSaver.js"></script>
+			<script src="js/STLExporter.js"></script>
+			
+			<!-- Library to allow to play with variables  -->
+			<script type="text/javascript" src="js/dat_gui/dat.gui.js"></script>
+		<!-- No more libraries -->
+		
+		<!-- Just adding google fonts: -->
+			<link href="https://fonts.googleapis.com/css?family=Bahiana" rel="stylesheet">
+		<!-- No more fonts -->
+	</head>
+	<body>
+		<h1 id="title">Cube <span>"</span>Wireframed<span>"</span></h1>
+		<h2 id="the">The</h2>
+		<div id="container"></div>
+		<script>
+
+			// VARIABLES:
+			var scene, camera, renderer;		// Main variables
+			var controls, container;			// Variables to avoid problems between GUI and OrbitControls
+			var gui, parameters;				// Variables for our GUI menu
+			
+			var wire_thickness = 1.5;			// Thickness of the wireframe
+			var h = 10;							// Side of the cube
+			var segments = 16;					// Number of segments
+			var fileName = "MyCubeWireframed"	// Name of the STL file
+			
+			//var material = new THREE.MeshLambertMaterial( {color: 0xbdbdbd} );
+			var material = new THREE.MeshLambertMaterial( {color: 0x2FA1D6} );
+			var corner, edge;					// Variables to create our geometries (spheres & cylinders)
+			
+			// LIGHTS:
+			var ambientLight = new THREE.AmbientLight (0x0c0c0c);
+			var directionalLight1 = new THREE.DirectionalLight (0xffffff);
+			var directionalLight2 = new THREE.DirectionalLight (0xffffff);
+			directionalLight1.position.set(1,0.75,0.5).normalize();
+			directionalLight2.position.set(-1,0.75,-0.5).normalize();
+			
+			var sphere = [];
+			var cylinder = [];
+			
+			// VARIABLES PER FER LA PROVA DELS CUBS EXTRES ABANS DE LIAR-ME AMB EL DASHBOARD
+			// negX = part negativa de l'eix X, posX = part positiva de l'eix X (and so on)
+			var negX = true;	//
+			var posX = false;	//
+			var negY = false;	//
+			var posY = false;	//
+			var negZ = false;	//
+			var posZ = false;	//
+			//
+
+			// Main functions to run our project!!!
+			init ();
+			animate();
+			
+			// MAIN FUNCTIONS
+		
+			// INIT FUNCTION
+			function init(){
+				// SCENE:
+				scene = new THREE.Scene();
+				
+				// CAMERA & ORBIT CONTROLS:		
+				camera = new THREE.PerspectiveCamera (75, window.innerWidth/window.innerHeight, 0.1, 1000 );;
+				camera.position.set(25, 20, 15);
+				camera.lookAt(new THREE.Vector3(0, 0, 0));
+				controls = new THREE.OrbitControls( camera, document.getElementById( 'container' ));
+				controls.addEventListener( 'change', render );
+				
+				// RENDERER:
+				renderer = new THREE.WebGLRenderer({ alpha: true }); 		// We allow a transparent background
+				renderer.setClearColor( 0xf2f2f2,0.25 );					// We decide a clear gray color for the background
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				container = document.getElementById( 'container' );
+				container.appendChild( renderer.domElement );
+				window.addEventListener( 'resize', onWindowResize, false );
+				
+				// CONSOLA DE CONTROL
+				displayGUI();	
+				
+			} // end of init			
+		
+			// ANIMATION FUNCTION
+			// Here we create the loop to be able to modify our geometry 
+			function animate(){
+				update();
+				requestAnimationFrame( animate );
+				render();
+			}
+		
+			// RENDER FUNCTION
+			function render(){
+				renderer.clear();
+				renderer.render( scene, camera );
+			}
+		
+			// FUNCTION TO CREATE THE ANIMATION
+			function update(){
+				while(scene.children.length > 0){ 
+					scene.remove(scene.children[0]); 
+				}
+				
+				sphereBuilder(0,0,0);
+				cylinderBuilder(0,0,0);
+				addCubeonSide (negX, posX, negY, posY, negZ, posZ);
+				scene.add(ambientLight);
+				scene.add (directionalLight1, directionalLight2);
+				//alert(sphere.length); //PROVES
+				//sphere.length = 0;	//PROVES
+				//cylinder.length = 0;	//PROVES
+			}
+			
+		
+			// FUNCTION TO CONTROL THE WINDOW RESIZE ASPECT AND RATIO
+			function onWindowResize(){
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+		
+			
+			// FUNCTION TO CREATE OUR MENU AND TO AVE THE CONTROL OF VARIABLE MODIFICATIONS			
+			function displayGUI(){
+				var gui = new dat.GUI();
+				
+				parameters = {
+					thickness: wire_thickness,
+					h: h,
+					name: fileName,
+					createSTL: function(){save()}
+				}
+				
+				var custom = gui.addFolder ("Customize your cube");
+				var thickness = custom.add (parameters, "thickness").min(0.5).max(25).step(0.5).name("Thickness");
+				var size = custom.add (parameters, "h").min(1).max(200).step(1).name("Size");
+				
+				size.onChange(function (value){h = value;});
+				thickness.onChange(function (value){wire_thickness = value;});
+				
+				var ex_STL = gui.addFolder ("Export you STL file");
+				var STLname = ex_STL.add(parameters, 'name').name("File name");
+				ex_STL.add(parameters, 'createSTL').name("Export it!");
+				
+				STLname.onFinishChange(function (value){fileName = value});
+				
+				custom.open();
+				ex_STL.open();
+				gui.open();
+				
+			}	// end of displayGUI()
+				
+				
+			// OUR FIRST BUILDER: we create all our cube corners with spheres
+			function sphereBuilder (incX, incY, incZ){
+			
+				corner = new THREE.SphereGeometry( wire_thickness, segments, segments/2);
+				
+				var x = h; var y = h; var z = h;
+				var length = sphere.length;
+				//var length = 0;  --> Si vull donar el valor i=0
+				
+				for (var i=length; i<length+8; i++){ 	
+				
+					if (i < length+4){ 	// Loop within the first 4 spheres
+						x = -x;			// Switching X value (-+-+)
+						
+						if ((i == length+2) || (i == length+3)){
+							y = -Math.abs(y);
+						}					
+					}
+					
+					if (i > length+3){	// Loop within the last 4 spheres
+						z = -h;			// Negative value of Z
+						y = h;			// Restart of Y value
+						x = -x;			// Switching X value (-+-+)
+						
+						if ((i == length+6) || (i == length+7)){
+							y = -Math.abs(y);
+						}
+					}			
+					
+					sphere[i] = new THREE.Mesh( corner, material );
+					sphere[i].position.set (x/2+incX, y/2+incY, z/2+incZ);
+					scene.add( sphere[i]);
+					//alert("sphere["+i+"] position is x="+x+", y="+y+", z="+z);
+				}
+				if (cylinder.length == 56){cylinder.length = 0}
+			}	
+			
+		
+			// OUR SECOND BUILDER: we create all our cube edges with cylinders
+			function cylinderBuilder (incX,incY,incZ){
+			
+				edge = new THREE.CylinderGeometry( wire_thickness, wire_thickness, h, segments );
+				var x = h; var y = h; var z = h;
+				
+				var length = cylinder.length;
+				//var length = 0;  --> Si vull donar el valor i=0
+				
+				for (var i=length; i<length+12; i++){
+				
+					if (i < length+4){	// Loop within the first 4 cylinders
+						x = 0;			// X value is 0
+						y = -y;			// Switching Y value (-+-+)
+						
+						if ((i == length+2) || (i == length+3)){
+							z = -Math.abs(z);
+						}
+					}
+										
+					if ((i > length+3) && (i < length+8)){
+						if (x == 0){x = h;} // Restart of X value
+						x = -x;				// Switching X value (-+-+)
+						y = 0;				// Y value is 0
+						z = h;				// Restart of Z value
+						
+						if ((i == length+6) || (i == length+7)){
+							z = -Math.abs(z);
+						}
+					}
+					
+					if (i > length+7){		// Loop within the last 4 cylinders
+						if (y == 0){y = h;} // Restart of Y value
+						x = -x;				// Switching X value (-+-+)
+						z = 0;				// Z value is 0
+						
+						if ((i == length+10) || (i == length+11)){
+							y = -Math.abs(y);
+						}
+					}
+					//alert("cylinder["+i+"] position is x="+x+", y="+y+", z="+z);
+					cylinder[i] = new THREE.Mesh( edge, material );
+					cylinder[i].position.set (x/2+incX, y/2+incY, z/2+incZ);
+					
+					//	Cylinder rotation
+					if (i < length+4){cylinder[i].rotation.z = Math.PI / 2;}
+					if (i > length+7){cylinder[i].rotation.x = Math.PI / 2;}
+					
+					scene.add( cylinder[i]);
+				}
+				if (cylinder.length == 84){cylinder.length = 0}
+			}
+			
+			function addCubeonSide (negX, posX, negY, posY, negZ, posZ){
+			
+				if (negX == true){
+					sphereBuilder (h,0,0);
+					cylinderBuilder (h,0,0);	
+				}
+				if (posX == true){
+					sphereBuilder (-h,0,0);
+					cylinderBuilder (-h,0,0);
+				}	
+				if (negY == true){
+					sphereBuilder (0,h,0);
+					cylinderBuilder (0,h,0);
+				}	
+				if (posY == true){
+					sphereBuilder (0,-h,0);
+					cylinderBuilder (0,-h,0);
+				}	
+				if (negZ == true){
+					sphereBuilder (0,0,h);
+					cylinderBuilder (0,0,h);
+				}
+				if (posZ == true){
+					sphereBuilder (0,0,-h);
+					cylinderBuilder (0,0,-h);
+				}
+			}			
+
+			// SAVE FUNCTION
+			function save(){
+			
+				// We create the CSG arrays
+				var sphereBSP = [];
+				var cylinderBSP = [];
+				var lengthSphere = sphere.length;		// Per mourem per l'array		
+				var lengthCylinder = cylinder.length;	// Per mourem per l'array	
+				
+				// Loops to create the new "CSG variables" inside the array
+				for (var i = 0; i < lengthSphere; i++ ){
+					sphereBSP[i] = new ThreeBSP (sphere[i]);
+				}
+				for (var j = 0; j < lengthCylinder; j++ ){
+					cylinderBSP[j] = new ThreeBSP (cylinder[j]);
+				}
+				
+				// Loops to union the spheres and the cylinders
+				var sphereUnion = sphereBSP[0].union( sphereBSP[1] );
+				for (var i = 2; i < sphereBSP.lenght; i++ ){
+					sphereUnion = sphereUnion.union( sphereBSP[i] );
+				}
+				var cylinderUnion = cylinderBSP[0].union (cylinderBSP[1])
+				for (var j = 2; j < cylinderBSP.length; j++ ){
+					cylinderUnion = cylinderUnion.union( cylinderBSP[j] );
+				}
+				
+				// Final union between spheres and cylinders
+				//var newBSP = sphereUnion.subtract ( cylinderUnion );
+				var newBSP = cylinderUnion.union ( sphereUnion );
+				var newMesh = newBSP.toMesh( material );
+			
+				saveSTL(scene, fileName);
+			}	// end of save()
+		
+		</script>
+	</body>
+</html>
