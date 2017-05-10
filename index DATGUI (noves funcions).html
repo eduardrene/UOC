@@ -60,6 +60,7 @@
 			}
 			.dg div.close-button:hover{ background-color: #2FA1D6 !important;
 			}
+			
 									
 		</style>
 		<!-- Just adding the necessary libraries: -->
@@ -117,7 +118,7 @@
 			
 			// VARIABLES PER FER LA PROVA DELS CUBS EXTRES ABANS DE LIAR-ME AMB EL DASHBOARD
 			// negX = part negativa de l'eix X, posX = part positiva de l'eix X (and so on)
-			var negX = true;	//
+			var negX = false;	//
 			var posX = false;	//
 			var negY = false;	//
 			var posY = false;	//
@@ -176,12 +177,13 @@
 					scene.remove(scene.children[0]); 
 				}
 				
-				sphereBuilder(0,0,0);
-				cylinderBuilder(0,0,0);
-				addCubeonSide (negX, posX, negY, posY, negZ, posZ);
+				sphereBuilder(0,0,0,0);
+				cylinderBuilder(0,0,0,0);
+				addCubeOnSide (negX, posX, negY, posY, negZ, posZ);
 				scene.add(ambientLight);
 				scene.add (directionalLight1, directionalLight2);
 				//alert(sphere.length); //PROVES
+				//alert(cylinder.length); //PROVES
 				//sphere.length = 0;	//PROVES
 				//cylinder.length = 0;	//PROVES
 			}
@@ -203,7 +205,13 @@
 					thickness: wire_thickness,
 					h: h,
 					name: fileName,
-					createSTL: function(){save()}
+					createSTL: function(){save()},
+					displayX1: negX,
+					displayX2: posX,
+					displayY1: negY,
+					displayY2: posY,
+					displayZ1: negZ,
+					displayZ2: posZ,
 				}
 				
 				var custom = gui.addFolder ("Customize your cube");
@@ -213,13 +221,29 @@
 				size.onChange(function (value){h = value;});
 				thickness.onChange(function (value){wire_thickness = value;});
 				
+				var addCubes = gui.addFolder ("Add cubes");
+				var axisX1 = addCubes.add(parameters, "displayX1").name("Front");
+				var axisX2 = addCubes.add(parameters, "displayX2").name("Behind");
+				var axisY1 = addCubes.add(parameters, "displayY1").name("Above");
+				var axisY2 = addCubes.add(parameters, "displayY2").name("Below");
+				var axisZ1 = addCubes.add(parameters, "displayZ1").name("Left");
+				var axisZ2 = addCubes.add(parameters, "displayZ2").name("Right");
+				
+				axisX1.onChange(function (value){negX = value});
+				axisX2.onChange(function (value){posX = value});
+				axisY1.onChange(function (value){negY = value});
+				axisY2.onChange(function (value){posY = value});
+				axisZ1.onChange(function (value){negZ = value});
+				axisZ2.onChange(function (value){posZ = value});
+				
 				var ex_STL = gui.addFolder ("Export you STL file");
 				var STLname = ex_STL.add(parameters, 'name').name("File name");
 				ex_STL.add(parameters, 'createSTL').name("Export it!");
 				
 				STLname.onFinishChange(function (value){fileName = value});
-				
+								
 				custom.open();
+				addCubes.open();
 				ex_STL.open();
 				gui.open();
 				
@@ -227,30 +251,39 @@
 				
 				
 			// OUR FIRST BUILDER: we create all our cube corners with spheres
-			function sphereBuilder (incX, incY, incZ){
+			function sphereBuilder (incX, incY, incZ, cube){
 			
 				corner = new THREE.SphereGeometry( wire_thickness, segments, segments/2);
 				
 				var x = h; var y = h; var z = h;
-				var length = sphere.length;
-				//var length = 0;  --> Si vull donar el valor i=0
+				var start;
 				
-				for (var i=length; i<length+8; i++){ 	
+				switch (cube){
+					case 0: 		start = 0; 	break;
+					case "negX":	start = 8;	break;
+					case "posX":	start = 16;	break;
+					case "negY":	start = 24;	break;
+					case "posY":	start = 32;	break;
+					case "negZ":	start = 40;	break;
+					case "posZ":	start = 48;	break;
+				}
 				
-					if (i < length+4){ 	// Loop within the first 4 spheres
+				for (var i=start; i<start+8; i++){ 	
+				
+					if (i < start+4){ 	// Loop within the first 4 spheres
 						x = -x;			// Switching X value (-+-+)
 						
-						if ((i == length+2) || (i == length+3)){
+						if ((i == start+2) || (i == start+3)){
 							y = -Math.abs(y);
 						}					
 					}
 					
-					if (i > length+3){	// Loop within the last 4 spheres
+					if (i > start+3){	// Loop within the last 4 spheres
 						z = -h;			// Negative value of Z
 						y = h;			// Restart of Y value
 						x = -x;			// Switching X value (-+-+)
 						
-						if ((i == length+6) || (i == length+7)){
+						if ((i == start+6) || (i == start+7)){
 							y = -Math.abs(y);
 						}
 					}			
@@ -259,48 +292,59 @@
 					sphere[i].position.set (x/2+incX, y/2+incY, z/2+incZ);
 					scene.add( sphere[i]);
 					//alert("sphere["+i+"] position is x="+x+", y="+y+", z="+z);
+					//if (sphere.length == 56){sphere.length = 0}
 				}
-				if (cylinder.length == 56){cylinder.length = 0}
+				// Restart the array, just in case
+				if (sphere.length == 57){sphere.length = 0}
 			}	
 			
 		
 			// OUR SECOND BUILDER: we create all our cube edges with cylinders
-			function cylinderBuilder (incX,incY,incZ){
+			function cylinderBuilder (incX,incY,incZ,cube){
 			
 				edge = new THREE.CylinderGeometry( wire_thickness, wire_thickness, h, segments );
 				var x = h; var y = h; var z = h;
+				var start;
 				
-				var length = cylinder.length;
-				//var length = 0;  --> Si vull donar el valor i=0
+				switch (cube){
+					
+					case 0: 		start = 0; 	break;
+					case "negX":	start = 12;	break;
+					case "posX":	start = 24;	break;
+					case "negY":	start = 36;	break;
+					case "posY":	start = 48;	break;
+					case "negZ":	start = 60;	break;
+					case "posZ":	start = 72;	break;					
+				}
 				
-				for (var i=length; i<length+12; i++){
+				for (var i=start; i<start+12; i++){
 				
-					if (i < length+4){	// Loop within the first 4 cylinders
+					if (i < start+4){	// Loop within the first 4 cylinders
 						x = 0;			// X value is 0
 						y = -y;			// Switching Y value (-+-+)
 						
-						if ((i == length+2) || (i == length+3)){
+						if ((i == start+2) || (i == start+3)){
 							z = -Math.abs(z);
 						}
 					}
 										
-					if ((i > length+3) && (i < length+8)){
+					if ((i > start+3) && (i < start+8)){
 						if (x == 0){x = h;} // Restart of X value
 						x = -x;				// Switching X value (-+-+)
 						y = 0;				// Y value is 0
 						z = h;				// Restart of Z value
 						
-						if ((i == length+6) || (i == length+7)){
+						if ((i == start+6) || (i == start+7)){
 							z = -Math.abs(z);
 						}
 					}
 					
-					if (i > length+7){		// Loop within the last 4 cylinders
+					if (i > start+7){		// Loop within the last 4 cylinders
 						if (y == 0){y = h;} // Restart of Y value
 						x = -x;				// Switching X value (-+-+)
 						z = 0;				// Z value is 0
 						
-						if ((i == length+10) || (i == length+11)){
+						if ((i == start+10) || (i == start+11)){
 							y = -Math.abs(y);
 						}
 					}
@@ -309,39 +353,40 @@
 					cylinder[i].position.set (x/2+incX, y/2+incY, z/2+incZ);
 					
 					//	Cylinder rotation
-					if (i < length+4){cylinder[i].rotation.z = Math.PI / 2;}
-					if (i > length+7){cylinder[i].rotation.x = Math.PI / 2;}
+					if (i < start+4){cylinder[i].rotation.z = Math.PI / 2;}
+					if (i > start+7){cylinder[i].rotation.x = Math.PI / 2;}
 					
 					scene.add( cylinder[i]);
 				}
-				if (cylinder.length == 84){cylinder.length = 0}
+				// Restart the array, just in case
+				if (cylinder.length == 85){cylinder.length = 0}
 			}
 			
-			function addCubeonSide (negX, posX, negY, posY, negZ, posZ){
+			function addCubeOnSide (negX, posX, negY, posY, negZ, posZ){
 			
 				if (negX == true){
-					sphereBuilder (h,0,0);
-					cylinderBuilder (h,0,0);	
+					sphereBuilder (h,0,0,"negX");
+					cylinderBuilder (h,0,0, "negX");	
 				}
 				if (posX == true){
-					sphereBuilder (-h,0,0);
-					cylinderBuilder (-h,0,0);
+					sphereBuilder (-h,0,0,"posX");
+					cylinderBuilder (-h,0,0,"posX");
 				}	
 				if (negY == true){
-					sphereBuilder (0,h,0);
-					cylinderBuilder (0,h,0);
+					sphereBuilder (0,h,0,"negY");
+					cylinderBuilder (0,h,0,"negY");
 				}	
 				if (posY == true){
-					sphereBuilder (0,-h,0);
-					cylinderBuilder (0,-h,0);
+					sphereBuilder (0,-h,0,"posY");
+					cylinderBuilder (0,-h,0,"posY");
 				}	
 				if (negZ == true){
-					sphereBuilder (0,0,h);
-					cylinderBuilder (0,0,h);
+					sphereBuilder (0,0,h,"negZ");
+					cylinderBuilder (0,0,h,"negZ");
 				}
 				if (posZ == true){
-					sphereBuilder (0,0,-h);
-					cylinderBuilder (0,0,-h);
+					sphereBuilder (0,0,-h,"posZ");
+					cylinderBuilder (0,0,-h,"posZ");
 				}
 			}			
 
@@ -351,8 +396,13 @@
 				// We create the CSG arrays
 				var sphereBSP = [];
 				var cylinderBSP = [];
-				var lengthSphere = sphere.length;		// Per mourem per l'array		
-				var lengthCylinder = cylinder.length;	// Per mourem per l'array	
+				
+				// We remove empty spaces
+				sphere = sphere.filter(Boolean); 
+				cylinder = cylinder.filter(Boolean);
+				
+				var lengthSphere = sphere.length;			
+				var lengthCylinder = cylinder.length;		
 				
 				// Loops to create the new "CSG variables" inside the array
 				for (var i = 0; i < lengthSphere; i++ ){
@@ -364,7 +414,7 @@
 				
 				// Loops to union the spheres and the cylinders
 				var sphereUnion = sphereBSP[0].union( sphereBSP[1] );
-				for (var i = 2; i < sphereBSP.lenght; i++ ){
+				for (var i = 2; i < sphereBSP.length; i++ ){
 					sphereUnion = sphereUnion.union( sphereBSP[i] );
 				}
 				var cylinderUnion = cylinderBSP[0].union (cylinderBSP[1])
@@ -376,7 +426,7 @@
 				//var newBSP = sphereUnion.subtract ( cylinderUnion );
 				var newBSP = cylinderUnion.union ( sphereUnion );
 				var newMesh = newBSP.toMesh( material );
-			
+				//var newMesh = sphereUnion.toMesh( material );
 				saveSTL(newMesh, fileName);
 			}	// end of save()
 		
