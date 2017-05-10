@@ -377,7 +377,7 @@
 				var newBSP = cylinderUnion.union ( sphereUnion );
 				var newMesh = newBSP.toMesh( material );
 			
-				saveSTL(scene, fileName);
+				saveSTL(newMesh, fileName);
 			}	// end of save()
 		
 		</script>
